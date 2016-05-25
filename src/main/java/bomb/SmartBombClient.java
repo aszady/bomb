@@ -15,14 +15,15 @@ import org.eclipse.leshan.core.response.*;
 
 import static org.eclipse.leshan.LwM2mId.*;
 
-public class SmartWatchClient {
+public class SmartBombClient {
 
     private final LeshanClient client;
 
     // the registration ID assigned by the server
     private String registrationId;
+    private final String ENDPOINT_NAME = "SmartBomb";
 
-    public SmartWatchClient(String serverHost, int serverPort) {
+    public SmartBombClient(String serverHost, int serverPort) {
 
         ObjectsInitializer initializer = new ObjectsInitializer();
 
@@ -40,7 +41,7 @@ public class SmartWatchClient {
         // Create client
         final InetSocketAddress localAddress = new InetSocketAddress(0);
         
-        client = new LeshanClient("foo", localAddress, localAddress, enablers);
+        client = new LeshanClient(ENDPOINT_NAME, localAddress, localAddress, enablers);
         client.start();
         registrationId = client.getRegistrationId();
         System.out.printf("Registered as %s\n", registrationId);
@@ -170,6 +171,6 @@ public class SmartWatchClient {
         //String serverHost = "localhost";
         String serverHost = "leshan.eclipse.org";
 
-        SmartWatchClient client = new SmartWatchClient(serverHost, 5683);
+        SmartBombClient client = new SmartBombClient(serverHost, 5683);
     }
 }
