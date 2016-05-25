@@ -1,31 +1,19 @@
 package bomb;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.eclipse.leshan.ResponseCode;
 import org.eclipse.leshan.client.californium.LeshanClient;
-import org.eclipse.leshan.client.californium.LeshanClientBuilder;
+import org.eclipse.leshan.client.object.Security;
 import org.eclipse.leshan.client.object.Server;
-import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
-import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
-import org.eclipse.leshan.client.resource.ObjectEnabler;
-import org.eclipse.leshan.client.resource.ObjectsInitializer;
+import org.eclipse.leshan.client.resource.*;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.request.BindingMode;
-import org.eclipse.leshan.core.request.DeregisterRequest;
-import org.eclipse.leshan.core.request.RegisterRequest;
-import org.eclipse.leshan.core.response.LwM2mResponse;
-import org.eclipse.leshan.core.response.ReadResponse;
-import org.eclipse.leshan.core.response.RegisterResponse;
-import static org.eclipse.leshan.client.object.Security.noSecBootstap;
-import static org.eclipse.leshan.LwM2mId.SERVER;
+import org.eclipse.leshan.core.response.*;
+
+import static org.eclipse.leshan.LwM2mId.*;
 
 public class SmartWatchClient {
 
@@ -37,19 +25,25 @@ public class SmartWatchClient {
     public SmartWatchClient(String serverHost, int serverPort) {
 
         ObjectsInitializer initializer = new ObjectsInitializer();
-        //initializer.setClassForObject(3, Device.class);
-        initializer.setInstancesForObject(0, noSecBootstap("coap://leshan.eclipse.org:5783"));
-        initializer.setInstancesForObject(SERVER, new Server(123, 30, BindingMode.U, false));
-        initializer.setClassForObject(6, Location.class);
-        //initializer.setClassForObject(3303, Temperature.class);
-        List<LwM2mObjectEnabler> enablers = initializer.create(0, SERVER, 6);
+
+        initializer.setInstancesForObject(SECURITY, Security.noSec("coap://"+serverHost+":"+Integer.toString(serverPort), 1));
+        initializer.setInstancesForObject(SERVER, new Server(1, 300L, BindingMode.U, false));
+        initializer.setInstancesForObject(DEVICE, new Device());
+        initializer.setInstancesForObject(LOCATION, new Location());
+        initializer.setInstancesForObject(3303, new Temperature());
+        //initializer.setInstancesForObject(3340, new Timer());
+
+        List<LwM2mObjectEnabler> enablers = initializer.create(
+                SECURITY, SERVER, DEVICE, LOCATION, 3303/*,3340*/
+        );
 
         // Create client
-        final InetSocketAddress serverAddress = new InetSocketAddress(serverHost, serverPort);
-        final InetSocketAddress localAddress = new InetSocketAddress("0.0.0.0", 0);
+        final InetSocketAddress localAddress = new InetSocketAddress(0);
         
         client = new LeshanClient("foo", localAddress, localAddress, enablers);
         client.start();
+        registrationId = client.getRegistrationId();
+        System.out.printf("Registered as %s\n", registrationId);
 
         // De-register on shutdown and stop client
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -77,33 +71,31 @@ public class SmartWatchClient {
     	}
     }
 
-    /*public static class Timer extends BaseInstanceEnabler {
-    	@Override
-        public ValueResponse read(int resourceid) {
-            switch (resourceid) {
-            case 5700: // Read value
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newDoubleValue(33)));
-            default:
-                return super.read(resourceid);
-            }
-    	}
-    }
-    
     public static class Temperature extends BaseInstanceEnabler {
-    	@Override
-        public ValueResponse read(int resourceid) {
+        @Override
+        public ReadResponse read(int resourceid) {
             switch (resourceid) {
-            case 5700: // Read value
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newDoubleValue(33)));
-            default:
-                return super.read(resourceid);
+                case 5700: // Read value
+                    return ReadResponse.success(resourceid, 23.4);
+                default:
+                    return super.read(resourceid);
             }
-    	}
+        }
     }
 
-    public static class Device extends BaseInstanceEnabler {
+    public static class Timer extends BaseInstanceEnabler {
+        @Override
+        public ReadResponse read(int resourceid) {
+            switch (resourceid) {
+                case 5700: // Read value
+                    return ReadResponse.success(resourceid, 23.4);
+                default:
+                    return super.read(resourceid);
+            }
+        }
+    }
+
+   public static class Device extends BaseInstanceEnabler {
 
         private final String manufacturelModel = "The bomb manufacturer";
         private final String modelNumber = "2016";
@@ -119,35 +111,29 @@ public class SmartWatchClient {
                     currentTimestamp.getAndAdd(1000);
                     // fireResourceChange(13);
                 }
-            }, 1000, 1000);*\/
+            }, 1000, 1000);*/
         }
 
         @Override
-        public ValueResponse read(int resourceid) {
+        public ReadResponse read(int resourceid) {
             switch (resourceid) {
             case 0: // Manufacturer model
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newStringValue(manufacturelModel)));
+                return ReadResponse.success(resourceid, manufacturelModel);
 
             case 1: // Model number
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newStringValue(modelNumber)));
+                return ReadResponse.success(resourceid, modelNumber);
 
             case 2: // Serial number
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newStringValue(serialNumber)));
+                return ReadResponse.success(resourceid, serialNumber);
 
             case 11: // Error code (mandatory resource)
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        new Value<?>[] { Value.newIntegerValue(0) }));
+                return ReadResponse.success(resourceid, 0);
 
             case 13: // Current time
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newDateValue(new Date(currentTimestamp.get()))));
+                return ReadResponse.success(resourceid, new Date(currentTimestamp.get()));
 
             case 16: // Binding mode (mandatory resource)
-                return new ValueResponse(ResponseCode.CONTENT, new LwM2mResource(resourceid,
-                        Value.newStringValue(bindingModel.toString())));
+                return ReadResponse.success(resourceid, bindingModel.toString());
 
             default:
                 return super.read(resourceid);
@@ -155,39 +141,29 @@ public class SmartWatchClient {
         }
 
         @Override
-        public LwM2mResponse write(int resourceid, LwM2mResource value) {
+        public WriteResponse write(int resourceid, LwM2mResource value) {
             switch (resourceid) {
             case 13: // current time
-                currentTimestamp.set(((Date) value.getValue().value).getTime());
+                currentTimestamp.set(((Date) value.getValue()).getTime());
                 System.out.println("New current date: " + new Date(currentTimestamp.longValue()));
-                return new LwM2mResponse(ResponseCode.CHANGED);
+                return WriteResponse.success();
             default:
                 return super.write(resourceid, value);
             }
         }
 
         @Override
-        public LwM2mResponse execute(int resourceid, byte[] params) {
+        public ExecuteResponse execute(int resourceid, String params) {
             switch (resourceid) {
             case 4: // reboot resource
                 System.out.println("Rebooting!");
-                return new LwM2mResponse(ResponseCode.CHANGED);
+                return ExecuteResponse.success();
             default:
                 return super.execute(resourceid, params);
             }
         }
 
-    }*/
-
-    /*public void register() {
-
-        RegisterResponse response = client.send(new RegisterRequest("my-smart-bomb"));
-
-        if (response.getCode() == ResponseCode.CREATED) {
-            registrationId = response.getRegistrationID();
-            System.out.println("Registered with id: " + registrationId);
-        }
-    }*/
+    }
 
     public static void main(String[] args) {
 
@@ -195,6 +171,5 @@ public class SmartWatchClient {
         String serverHost = "leshan.eclipse.org";
 
         SmartWatchClient client = new SmartWatchClient(serverHost, 5683);
-        //client.register();
     }
 }
