@@ -15,17 +15,43 @@ import org.eclipse.leshan.core.response.*;
 
 import static org.eclipse.leshan.LwM2mId.*;
 
+import com.pi4j.io.gpio.GpioController;
+import com.pi4j.io.gpio.GpioFactory;
+import com.pi4j.io.gpio.GpioPinDigitalOutput;
+import com.pi4j.io.gpio.PinState;
+import com.pi4j.io.gpio.RaspiPin;
+
 public class SmartBombClient {
 
-    private final LeshanClient client;
+    private final LeshanClient client = null;
 
     // the registration ID assigned by the server
     private String registrationId;
     private final String ENDPOINT_NAME = "SmartBomb";
 
-    public SmartBombClient(String serverHost, int serverPort) {
+    public SmartBombClient(String serverHost, int serverPort) throws InterruptedException {
 
-        ObjectsInitializer initializer = new ObjectsInitializer();
+        final GpioController gpio = GpioFactory.getInstance();
+
+        // provision gpio pin #01 as an output pin and turn on
+        final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01, "MyLED", PinState.HIGH);
+
+        // set shutdown state for this pin
+        pin.setShutdownOptions(true, PinState.LOW);
+
+
+
+        for(;;) {
+            pin.low();
+            System.out.println("--> GPIO state should be: OFF");
+            Thread.sleep(1000);
+
+            pin.high();
+            System.out.println("--> GPIO state should be: ON");
+            Thread.sleep(1000);
+        }
+
+        /*ObjectsInitializer initializer = new ObjectsInitializer();
 
         initializer.setInstancesForObject(SECURITY, Security.noSec("coap://"+serverHost+":"+Integer.toString(serverPort), 1));
         initializer.setInstancesForObject(SERVER, new Server(1, 300L, BindingMode.U, false));
@@ -35,7 +61,7 @@ public class SmartBombClient {
         //initializer.setInstancesForObject(3340, new Timer());
 
         List<LwM2mObjectEnabler> enablers = initializer.create(
-                SECURITY, SERVER, DEVICE, LOCATION, 3303/*,3340*/
+                SECURITY, SERVER, DEVICE, LOCATION, 3303/*,3340*\/
         );
 
         // Create client
@@ -54,7 +80,7 @@ public class SmartBombClient {
                     client.stop(true);
                 }
             }
-        });
+        });*/
 
     }
     
@@ -166,7 +192,7 @@ public class SmartBombClient {
 
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
 
         //String serverHost = "localhost";
         String serverHost = "leshan.eclipse.org";

@@ -9,5 +9,10 @@
   		<artifactId>leshan-all</artifactId>
   		<version>0.1.11-M10</version>
   	</dependency>
+    <dependency>
+      <groupId>com.pi4j</groupId>
+      <artifactId>pi4j-core</artifactId>
+      <version>1.0</version>
+    </dependency>
   </dependencies>
 </project>
